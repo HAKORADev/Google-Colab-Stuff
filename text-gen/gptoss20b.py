@@ -5,7 +5,7 @@ import subprocess
 import json
 from pathlib import Path
 
-MODEL_URL = "https://huggingface.co/bartowski/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf"
+MODEL_URL = "https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf"
 MODEL_NAME = "gpt-oss-20b-Q4_K_M.gguf"
 MODEL_DIR = "models"
 CONTEXT_SIZE = 128000
@@ -49,7 +49,7 @@ def download_model():
         return model_path
     except subprocess.CalledProcessError:
         print("Download failed. Try manual download:")
-        print(f"wget {MODEL_URL} -O {model_path}")
+        print(f"wget https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf -O {model_path}")
         sys.exit(1)
 
 class ChatSession:
