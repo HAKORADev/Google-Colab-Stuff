@@ -2,13 +2,12 @@ import os
 import sys
 import argparse
 import subprocess
-import json
 from pathlib import Path
 
 MODEL_URL = "https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf"
 MODEL_NAME = "gpt-oss-20b-Q4_K_M.gguf"
 MODEL_DIR = "models"
-CONTEXT_SIZE = 128000
+CONTEXT_SIZE = 32768
 MAX_CONTEXT_RATIO = 0.95
 TEMPERATURE = 0.7
 
@@ -49,7 +48,7 @@ def download_model():
         return model_path
     except subprocess.CalledProcessError:
         print("Download failed. Try manual download:")
-        print(f"wget https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf -O {model_path}")
+        print(f"wget {MODEL_URL} -O {model_path}")
         sys.exit(1)
 
 class ChatSession:
@@ -57,17 +56,18 @@ class ChatSession:
         from llama_cpp import Llama
         self.model_path = model_path
         self.messages = []
-        self.system_prompt = "You are a helpful AI assistant. Think step by step and provide detailed, accurate responses."
+        self.system_prompt = "You are a helpful AI assistant."
 
-        print("Loading model into VRAM...")
+        print("Loading model (this may take 1-2 minutes)...")
+        print("GPU layers: 35/49 on T4")
         self.llm = Llama(
             model_path=model_path,
             n_ctx=CONTEXT_SIZE,
             n_gpu_layers=35,
-            verbose=False,
+            verbose=True,
             n_batch=512,
         )
-        print("Model loaded!")
+        print("Model ready!")
 
     def estimate_tokens(self, text):
         return len(text) // 4
@@ -82,63 +82,55 @@ class ChatSession:
         return self.messages
 
     def format_prompt(self):
-        messages = self.get_context_window()
-        lines = []
+        parts = []
+        parts.append("<|start|>system<|message|>" + self.system_prompt + "<|end|>")
 
-        lines.append("<|im_start|>system")
-        lines.append(self.system_prompt)
-        lines.append("<|im_end|>")
+        for msg in self.get_context_window():
+            if msg["role"] == "user":
+                parts.append("<|start|>user<|message|>" + msg["content"] + "<|end|>")
+            elif msg["role"] == "assistant":
+                parts.append("<|start|>assistant<|channel|>final<|message|>" + msg["content"] + "<|end|>")
 
-        for msg in messages:
-            lines.append("<|im_start|>" + msg["role"])
-            lines.append(msg["content"])
-            lines.append("<|im_end|>")
+        parts.append("<|start|>assistant<|channel|>final<|message|>")
+        return "".join(parts)
 
-        lines.append("<|im_start|>assistant")
-
-        return "\n".join(lines)
-
-    def generate(self, user_input, show_thinking=False):
+    def generate_stream(self, user_input):
         self.messages.append({"role": "user", "content": user_input})
-
         prompt = self.format_prompt()
 
+        print("🤖 Assistant: ", end="", flush=True)
+
+        response_text = ""
         try:
-            output = self.llm(
+            stream = self.llm(
                 prompt,
-                max_tokens=2048,
+                max_tokens=1024,
                 temperature=TEMPERATURE,
                 top_p=0.9,
                 top_k=40,
                 repeat_penalty=1.1,
-                stop=["<|im_end|>", "<|im_start|>user"],
+                stop=["<|end|>", "<|return|>", "<|start|>user", "<|start|>system"],
+                stream=True,
             )
 
-            text = output["choices"][0]["text"].strip()
+            for output in stream:
+                token = output["choices"][0]["text"]
+                response_text += token
+                print(token, end="", flush=True)
 
-            if "<|thinking|>" in text:
-                thinking_start = text.find("<|thinking|>") + len("<|thinking|>")
-                thinking_end = text.find("<|/thinking|>")
+            print()
 
-                if thinking_end > thinking_start:
-                    thinking = text[thinking_start:thinking_end].strip()
-                    response = text[thinking_end + len("<|/thinking|>"):].strip()
-
-                    if show_thinking:
-                        print("\n🤔 Thinking: " + thinking[:200] + "...")
-
-                    text = response
-
-            self.messages.append({"role": "assistant", "content": text})
-            return text
+            clean_text = response_text.replace("<|end|>", "").replace("<|return|>", "").strip()
+            self.messages.append({"role": "assistant", "content": clean_text})
+            return clean_text
 
         except Exception as e:
-            return "[Error: " + str(e) + "]"
+            print(f"\n[Error: {e}]")
+            return "[Generation failed]"
 
 def main():
     parser = argparse.ArgumentParser(description="Local GPT-OSS 20B Chat")
-    parser.add_argument("--show-thinking", action="store_true", help="Show model thinking process")
-    parser.add_argument("--model-path", type=str, help="Path to GGUF model (auto-download if not set)")
+    parser.add_argument("--model-path", type=str, help="Path to GGUF model")
     args = parser.parse_args()
 
     print("🤖 Local GPT-OSS 20B Chatbot")
@@ -153,16 +145,14 @@ def main():
     else:
         model_path = download_model()
 
-    print("\nInitializing...")
-    print("Context: " + str(CONTEXT_SIZE) + " tokens (sliding " + str(int(MAX_CONTEXT_RATIO*100)) + "%)")
-    print("Temperature: " + str(TEMPERATURE))
-    print("\nType 'quit', 'exit', or '/bye' to exit")
-    print("Type '/clear' to clear history")
-    print("Type '/think' to toggle thinking visibility")
+    print(f"\nConfig:")
+    print(f"  Context: {CONTEXT_SIZE} tokens (sliding {int(MAX_CONTEXT_RATIO*100)}%)")
+    print(f"  Temperature: {TEMPERATURE}")
+    print(f"  Note: First response may take 30-60s on T4")
+    print("\nCommands: /clear, /bye, quit, exit")
     print("=" * 50)
 
     chat = ChatSession(model_path)
-    show_thinking = args.show_thinking
 
     while True:
         try:
@@ -178,14 +168,8 @@ def main():
                 chat.messages = []
                 print("🧹 History cleared")
                 continue
-            elif user_input == "/think":
-                show_thinking = not show_thinking
-                print("🤔 Thinking visibility: " + str(show_thinking))
-                continue
 
-            print("🤖 Assistant: ", end="", flush=True)
-            response = chat.generate(user_input, show_thinking)
-            print(response)
+            chat.generate_stream(user_input)
 
         except KeyboardInterrupt:
             print("\n👋 Interrupted")
