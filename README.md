@@ -18,3 +18,5 @@ cd name-of-the-tool-folder
 # Install & run (most cases)
 pip install -r requirements.txt
 python main.py
+```
+- some tools have different ways to use, read teadme
