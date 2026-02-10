@@ -1,6 +1,6 @@
 - usage
 ```bash
-python main.py your prompt
+python main.py "your prompt"
 ```
 it will auto download model and load it and export result to folder results/
 it uses 1024x1024 30 steps generation
