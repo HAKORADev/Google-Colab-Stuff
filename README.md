@@ -1,7 +1,20 @@
-- this is not a tool or project, it is a collection!
-- the usage is totally simple:
-clone repo
-navigate to the tool folder you want
-pip install -r requirements.txt && python main.py
-and you are ready now
-some tools will have additional details in their readme, so check it out
+# Google Colab Stuff
+
+Just a collection of small Python tools/scripts I use (sometimes in Colab, sometimes locally — doesn't matter).
+
+→ **Not** one big tool or project.  
+→ Each folder = one independent tool.
+
+### Super simple usage
+
+```bash
+# Clone once
+git clone https://github.com/HAKORADev/Google-Colab-Stuff.git
+cd Google-Colab-Stuff
+
+# Pick whatever you want
+cd name-of-the-tool-folder
+
+# Install & run (most cases)
+pip install -r requirements.txt
+python main.py
