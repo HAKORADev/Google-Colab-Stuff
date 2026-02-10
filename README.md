@@ -1,5 +1,5 @@
 - this is not a tool or project, it is a collection!
-the usage is totally simple:
+- the usage is totally simple:
 clone repo
 navigate to the tool folder you want
 pip install -r requirements.txt && python main.py
