@@ -1,4 +1,4 @@
-this is not a tool or project, it is a collection!
+- this is not a tool or project, it is a collection!
 the usage is totally simple:
 clone repo
 navigate to the tool folder you want
