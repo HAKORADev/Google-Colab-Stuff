@@ -18,7 +18,7 @@ First run downloads ~11GB model automatically.
 
 ## Features
 
-- **128k context window** with 95% sliding window
+- **32k context window** with 95% sliding window
 - **Thinking model** — shows reasoning process (optional)
 - **Markdown output** — Formatted responses
 - **GPU accelerated** — 35 layers offloaded to T4
