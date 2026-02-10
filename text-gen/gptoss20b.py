@@ -59,13 +59,11 @@ class ChatSession:
         self.system_prompt = "You are a helpful AI assistant. Think step by step and provide detailed, accurate responses."
 
     def estimate_tokens(self, text):
-        # Rough estimate: ~4 chars per token
         return len(text) // 4
 
     def get_context_window(self):
         total_tokens = sum(self.estimate_tokens(m["content"]) for m in self.messages)
 
-        # Sliding window: keep max 95% of context
         while total_tokens > int(CONTEXT_SIZE * MAX_CONTEXT_RATIO) and len(self.messages) > 1:
             removed = self.messages.pop(0)
             total_tokens -= self.estimate_tokens(removed["content"])
@@ -74,25 +72,23 @@ class ChatSession:
 
     def format_prompt(self):
         messages = self.get_context_window()
-
-        prompt_parts = []
+        lines = []
 
         # System
-        prompt_parts.append(f"<|im_start|>system
-{self.system_prompt}<|im_end|>")
+        lines.append("<|im_start|>system")
+        lines.append(self.system_prompt)
+        lines.append("<|im_end|>")
 
         # History
         for msg in messages:
-            role = msg["role"]
-            content = msg["content"]
-            prompt_parts.append(f"<|im_start|>{role}
-{content}<|im_end|>")
+            lines.append("<|im_start|>" + msg["role"])
+            lines.append(msg["content"])
+            lines.append("<|im_end|>")
 
-        # Current prompt
-        prompt_parts.append("<|im_start|>assistant
-")
+        # Assistant start
+        lines.append("<|im_start|>assistant")
 
-        return "\n".join(prompt_parts)
+        return "\n".join(lines)
 
     def generate(self, user_input, show_thinking=False):
         self.messages.append({"role": "user", "content": user_input})
@@ -110,7 +106,7 @@ class ChatSession:
             "--repeat-penalty", "1.1",
             "--ctx-size", str(CONTEXT_SIZE),
             "--batch-size", "512",
-            "-ngl", "35",  # GPU layers for T4
+            "-ngl", "35",
             "--multiline-input",
             "--no-display-prompt"
         ]
@@ -119,7 +115,6 @@ class ChatSession:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             output = result.stdout.strip()
 
-            # Parse thinking if present
             if "<|thinking|>" in output:
                 thinking_start = output.find("<|thinking|>") + len("<|thinking|>")
                 thinking_end = output.find("<|/thinking|>")
@@ -129,7 +124,7 @@ class ChatSession:
                     response = output[thinking_end + len("<|/thinking|>"):].strip()
 
                     if show_thinking:
-                        print(f"\n🤔 Thinking: {thinking[:200]}...")
+                        print("\n🤔 Thinking: " + thinking[:200] + "...")
 
                     output = response
 
@@ -139,7 +134,7 @@ class ChatSession:
         except subprocess.TimeoutExpired:
             return "[Generation timeout - model is slow on T4]"
         except Exception as e:
-            return f"[Error: {e}]"
+            return "[Error: " + str(e) + "]"
 
 def main():
     parser = argparse.ArgumentParser(description="Local GPT-OSS 20B Chat")
@@ -159,9 +154,9 @@ def main():
     else:
         model_path = download_model()
 
-    print(f"\nLoading model: {model_path}")
-    print(f"Context: {CONTEXT_SIZE} tokens (sliding {MAX_CONTEXT_RATIO*100:.0f}%)")
-    print(f"Temperature: {TEMPERATURE}")
+    print("\nLoading model: " + model_path)
+    print("Context: " + str(CONTEXT_SIZE) + " tokens (sliding " + str(int(MAX_CONTEXT_RATIO*100)) + "%)")
+    print("Temperature: " + str(TEMPERATURE))
     print("\nType 'quit', 'exit', or '/bye' to exit")
     print("Type '/clear' to clear history")
     print("Type '/think' to toggle thinking visibility")
@@ -186,7 +181,7 @@ def main():
                 continue
             elif user_input == "/think":
                 show_thinking = not show_thinking
-                print(f"🤔 Thinking visibility: {show_thinking}")
+                print("🤔 Thinking visibility: " + str(show_thinking))
                 continue
 
             print("🤖 Assistant: ", end="", flush=True)
