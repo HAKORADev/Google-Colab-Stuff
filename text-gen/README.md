@@ -14,7 +14,6 @@ First run downloads ~11GB model automatically.
 
 - `quit`, `exit`, `/bye` — Exit
 - `/clear` — Clear conversation history
-- `/think` — Toggle thinking visibility
 
 ## Features
 
