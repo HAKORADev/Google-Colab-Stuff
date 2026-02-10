@@ -5,17 +5,17 @@ Simple text-to-speech using Qwen3-TTS 1.7B VoiceDesign model.
 ## Usage
 
 ```bash
-python main.py "Your text here" --voice "voice description"
+python tts.py "Your text here" --voice "voice description"
 ```
 
 ## Examples
 
 ```bash
-python main.py "Hello world" --voice "a clear adult male with professional tone"
+python tts.py "Hello world" --voice "a clear adult male with professional tone"
 
-python main.py "Welcome to the future of AI" --voice "young female with energetic and friendly voice"
+python tts.py "Welcome to the future of AI" --voice "young female with energetic and friendly voice"
 
-python main.py "This is a test" --voice "deep authoritative male voice, calm and clear"
+python tts.py "This is a test" --voice "deep authoritative male voice, calm and clear"
 ```
 
 ## Output
