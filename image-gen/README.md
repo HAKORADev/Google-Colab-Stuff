@@ -12,3 +12,9 @@ both are very good on T4 GPU
 - since you reached this place, ofc you know that
 - have fun!
 - for flux, you have to set your HF token first and your account should be able to access the model
+
+Example:
+```python
+import os
+os.environ["HF_TOKEN"] = "your_huggingface_token_here"
+```
