@@ -14,15 +14,15 @@ TEMPERATURE = 0.7
 
 def ensure_llama_cpp():
     try:
-        subprocess.run(["llama-cli", "--version"], capture_output=True, check=True)
+        import llama_cpp
+        print(f"llama-cpp-python found: {llama_cpp.__version__}")
         return True
-    except:
+    except ImportError:
         return False
 
 def install_llama_cpp():
     print("llama.cpp not found. Installing...")
     print("Run: pip install llama-cpp-python")
-    print("Or build from source: https://github.com/ggerganov/llama.cpp")
     return False
 
 def download_model():
@@ -54,9 +54,20 @@ def download_model():
 
 class ChatSession:
     def __init__(self, model_path):
+        from llama_cpp import Llama
         self.model_path = model_path
         self.messages = []
         self.system_prompt = "You are a helpful AI assistant. Think step by step and provide detailed, accurate responses."
+
+        print("Loading model into VRAM...")
+        self.llm = Llama(
+            model_path=model_path,
+            n_ctx=CONTEXT_SIZE,
+            n_gpu_layers=35,
+            verbose=False,
+            n_batch=512,
+        )
+        print("Model loaded!")
 
     def estimate_tokens(self, text):
         return len(text) // 4
@@ -74,18 +85,15 @@ class ChatSession:
         messages = self.get_context_window()
         lines = []
 
-        # System
         lines.append("<|im_start|>system")
         lines.append(self.system_prompt)
         lines.append("<|im_end|>")
 
-        # History
         for msg in messages:
             lines.append("<|im_start|>" + msg["role"])
             lines.append(msg["content"])
             lines.append("<|im_end|>")
 
-        # Assistant start
         lines.append("<|im_start|>assistant")
 
         return "\n".join(lines)
@@ -95,44 +103,35 @@ class ChatSession:
 
         prompt = self.format_prompt()
 
-        cmd = [
-            "llama-cli",
-            "-m", self.model_path,
-            "-p", prompt,
-            "-n", "2048",
-            "--temp", str(TEMPERATURE),
-            "--top-p", "0.9",
-            "--top-k", "40",
-            "--repeat-penalty", "1.1",
-            "--ctx-size", str(CONTEXT_SIZE),
-            "--batch-size", "512",
-            "-ngl", "35",
-            "--multiline-input",
-            "--no-display-prompt"
-        ]
-
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-            output = result.stdout.strip()
+            output = self.llm(
+                prompt,
+                max_tokens=2048,
+                temperature=TEMPERATURE,
+                top_p=0.9,
+                top_k=40,
+                repeat_penalty=1.1,
+                stop=["<|im_end|>", "<|im_start|>user"],
+            )
 
-            if "<|thinking|>" in output:
-                thinking_start = output.find("<|thinking|>") + len("<|thinking|>")
-                thinking_end = output.find("<|/thinking|>")
+            text = output["choices"][0]["text"].strip()
+
+            if "<|thinking|>" in text:
+                thinking_start = text.find("<|thinking|>") + len("<|thinking|>")
+                thinking_end = text.find("<|/thinking|>")
 
                 if thinking_end > thinking_start:
-                    thinking = output[thinking_start:thinking_end].strip()
-                    response = output[thinking_end + len("<|/thinking|>"):].strip()
+                    thinking = text[thinking_start:thinking_end].strip()
+                    response = text[thinking_end + len("<|/thinking|>"):].strip()
 
                     if show_thinking:
                         print("\n🤔 Thinking: " + thinking[:200] + "...")
 
-                    output = response
+                    text = response
 
-            self.messages.append({"role": "assistant", "content": output})
-            return output
+            self.messages.append({"role": "assistant", "content": text})
+            return text
 
-        except subprocess.TimeoutExpired:
-            return "[Generation timeout - model is slow on T4]"
         except Exception as e:
             return "[Error: " + str(e) + "]"
 
@@ -154,7 +153,7 @@ def main():
     else:
         model_path = download_model()
 
-    print("\nLoading model: " + model_path)
+    print("\nInitializing...")
     print("Context: " + str(CONTEXT_SIZE) + " tokens (sliding " + str(int(MAX_CONTEXT_RATIO*100)) + "%)")
     print("Temperature: " + str(TEMPERATURE))
     print("\nType 'quit', 'exit', or '/bye' to exit")
