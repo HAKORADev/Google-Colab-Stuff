@@ -19,4 +19,4 @@ cd name-of-the-tool-folder
 pip install -r requirements.txt
 python main.py
 ```
-- some tools have different ways to use, read teadme
+- some tools have different ways to use, read their readme in your way
