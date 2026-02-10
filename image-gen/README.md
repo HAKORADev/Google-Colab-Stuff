@@ -11,3 +11,4 @@ both are very good on T4 GPU
 - it is just AI image generation
 - since you reached this place, ofc you know that
 - have fun!
+- for flux, you have to set your HF token first and your account should be able to access the model
